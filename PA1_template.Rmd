@@ -1,0 +1,117 @@
+---
+title: 'Reproducible Research: Peer Assessment 1'
+output: html_document
+---
+
+
+## Loading and preprocessing the data
+
+```{r}
+tbl <- read.csv("activity.csv")
+str(tbl)
+head(tbl)
+```
+
+## What is mean total number of steps taken per day?
+
+1.Make a histogram of the total number of steps taken each day
+
+```{r}
+library(ggplot2)
+tblnoNA <- na.omit(tbl)
+ggplot(tblnoNA, aes(date, steps))+geom_bar(stat="identity", fill="lightblue", colour="blue")+ labs(x = "Date", y = "Total number of steps")
+ggsave("./figure/plot1.png", width=8, height=8, unit="cm", dpi=300)
+```
+
+2.Calculate and report the mean and median total number of steps taken per day
+```{r}
+sumofsteps <- aggregate(tblnoNA$steps, FUN = "sum", list(Date = tblnoNA$date))$x
+##Mean total number of steps taken per day
+mean(sumofsteps)
+##Median total number of steps taken per day
+median(sumofsteps)
+```
+
+## What is the average daily activity pattern?
+
+1.Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+
+```{r}
+avgnos <- aggregate(tblnoNA$steps, list(interval = as.numeric(as.character(tblnoNA$interval))), FUN = "mean")
+ggplot(avgnos, aes(interval, avgnos$x))+geom_line()+labs(x = "5-minute intervals", y = "Average Number of Steps Taken")
+ggsave("./figure/plot2.png", width=8, height=8, unit="cm", dpi=300)
+```
+
+2.Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+```{r}
+avgnos[avgnos$x == max(avgnos$x),]
+```
+
+## Imputing missing values
+
+Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+
+```{r}
+sum(is.na(tbl))
+```
+
+Use the mean for that 5-minute interval to fill each NA value in the steps column and create a new dataset "temptbl"
+
+```{r}
+##Use the mean for that 5-minute interval to fill each NA value in the steps column and create a new dataset "temptbl"
+temptbl <- tbl
+for (i in 1:nrow(temptbl)) {
+        if (is.na(temptbl$steps[i])){
+                temptbl$steps[i] = avgnos[which(temptbl$interval[i]== avgnos$interval),]$x
+        }
+}
+head(temptbl)
+```
+
+Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. 
+
+```{r}
+ggplot(temptbl, aes(date, steps))+geom_bar(stat="identity", fill="lightblue", colour="blue")+ labs(x = "Date", y = "Total number of steps")
+ggsave("./figure/plot3.png", width=8, height=8, unit="cm", dpi=300)
+```
+
+Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+```{r}
+tempsumofsteps <- aggregate(temptbl$steps, FUN = "sum", list(Date = temptbl$date))$x
+diffmean <- mean(tempsumofsteps)-mean(sumofsteps)
+diffmean
+diffmedian <- median(tempsumofsteps)-median(sumofsteps)
+diffmedian
+```
+
+The value of the means are the same. But the value of the new median is greater than the older one about `r diffmedian`.
+
+## Are there differences in activity patterns between weekdays and weekends?
+
+Use the dataset with the filled-in missing values for this part.
+
+1.Create a new factor variable in the dataset with two levels ¡V ¡§weekday¡¨ and ¡§weekend¡¨ indicating whether a given date is a weekday or weekend day.
+
+```{r}
+Sys.setlocale("LC_TIME", "English")
+temp2 <- temptbl
+temp2$date <- as.Date(temp2$date)
+temp2$weekdays <- factor(format(temp2$date, "%A"))
+levels(temp2$weekdays) <- list(weekday = c("Monday", "Tuesday","Wednesday","Thursday", "Friday"),weekend = c("Saturday", "Sunday"))
+table(temp2$weekdays)              
+```
+
+2.Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). 
+
+```{r}
+library(lattice)
+avgtemp2 <- aggregate(temp2$steps, list(interval = as.numeric(as.character(temp2$interval)),weekdays = temp2$weekdays),FUN = "mean")
+plot4 <- xyplot(avgtemp2$x~avgtemp2$interval | avgtemp2$weekdays, xlab = "Interval", ylab = "Number of steps", type = "l")
+plot4
+trellis.device(device="png", filename="./figure/plot4.png")
+print(plot4)
+dev.off()
+```
+
